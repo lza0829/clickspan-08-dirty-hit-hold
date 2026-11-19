@@ -3,10 +3,16 @@ import uuid
 from datetime import datetime, timezone
 
 from app.db import FIXTURES_DIR, connect
+from app.modules.dirty_hit_hold import hold_dirty_hit, validate_hit
 
 
 def run_batch() -> dict:
-    """基座装载：按夹具追加击点；超时切会话 / 脏点隔离留给功能题空桩。"""
+    """收流装载（入口校验分流）。
+
+    入口逐点校验必填字段：脏点剔入 quarantine（保留原始 payload 与原因），
+    合法点才允许写正式 hits / 更新 open 会话末击点时钟。整批单事务，
+    意外异常整趟回滚，脏点不可能改动正式计数或末击点。
+    """
     path = FIXTURES_DIR / "ingest_batch.json"
     if not path.exists():
         return {"ok": False, "error": "缺少 ingest_batch.json"}
@@ -17,8 +23,27 @@ def run_batch() -> dict:
     conn = connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
+
+        # 末击点时钟基线：批次前所有 open 会话的 ended_at 快照，供核证比对
+        clock_before = {
+            r["id"]: r["ended_at"]
+            for r in conn.execute(
+                "SELECT id, ended_at FROM sessions WHERE status='open'"
+            ).fetchall()
+        }
+
         written = 0
+        held = 0
+        hold_keys = []
         for hit in hits:
+            # —— 入口校验分流：脏点进搁置，不触碰任何正式表 ——
+            reasons = validate_hit(hit)
+            if reasons:
+                hold_key = hold_dirty_hit(conn, hit, reasons, batch_id, _now())
+                held += 1
+                hold_keys.append(hold_key)
+                continue
+
             vid = hit["visitor_id"]
             exists = conn.execute("SELECT 1 FROM visitors WHERE id=?", (vid,)).fetchone()
             if not exists:
@@ -99,7 +124,14 @@ def run_batch() -> dict:
                         _now(),
                     ),
                 )
-        report = {"batch_id": batch_id, "written": written, "input": len(hits)}
+        report = {
+            "batch_id": batch_id,
+            "input": len(hits),
+            "written": written,
+            "held": held,
+            "hold_keys": hold_keys,
+            "clock_before": clock_before,
+        }
         conn.execute(
             "INSERT OR REPLACE INTO ingest_batches(id, created_at, report_json) VALUES (?,?,?)",
             (batch_id, _now(), json.dumps(report, ensure_ascii=False)),

@@ -38,7 +38,9 @@ onMounted(load)
 
     <section class="panel">
       <h1>会话织机</h1>
-      <p class="muted">基座按访客整段挂会话；空闲切窗由空桩功能题实现。</p>
+      <p class="muted">
+        基座按访客整段挂会话；脏点在收流入口即被搁置，不会顶替末击点（末珠标“末击点”）。
+      </p>
       <div class="lane-list">
         <article v-for="s in sessions" :key="s.id" class="lane">
           <div class="lane-head">
@@ -46,14 +48,18 @@ onMounted(load)
               <strong>{{ s.id }}</strong>
               <span class="muted"> · {{ s.visitor_id }} · {{ s.status }}</span>
             </div>
-            <span class="mono">{{ s.hit_count }} 点 · {{ s.started_at }} → {{ s.ended_at || '…' }}</span>
+            <span class="mono">
+              {{ s.hit_count }} 点 · {{ s.started_at }} →
+              <em class="clock-end" title="open 会话末击点时钟，脏行不得更新">{{ s.ended_at || '…' }} 末击点</em>
+            </span>
           </div>
           <div class="beads" v-if="details[s.id]">
             <template v-for="(h, i) in details[s.id].hits" :key="h.id">
               <span v-if="i" class="connector" aria-hidden="true"></span>
-              <span class="hit-bead">
+              <span class="hit-bead" :class="{ 'last-bead': i === details[s.id].hits.length - 1 }">
                 <strong>{{ h.event_name }}</strong>
                 <span>{{ h.page_path }}</span>
+                <em v-if="i === details[s.id].hits.length - 1" class="bead-tag">末击点</em>
               </span>
             </template>
           </div>

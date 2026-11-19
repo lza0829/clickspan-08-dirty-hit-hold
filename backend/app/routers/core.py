@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.db import connect
+from app.modules.dirty_hit_hold import attestation
 from app.seed import idle_timeout_sec
 from app.services import ingest as ingest_svc
 from app.services import sessions as sess_svc
@@ -59,13 +60,39 @@ def get_session(session_id: str):
 
 
 @router.get("/quarantine")
-def list_quarantine():
+def list_quarantine(batch_id: str | None = None):
+    """搁置页：含批次、搁置键、原因与原始 payload（member_json 原样返回）。"""
     conn = connect()
     try:
-        rows = conn.execute(
-            "SELECT id, visitor_id, reason, member_json, created_at FROM quarantine ORDER BY id DESC"
-        ).fetchall()
+        if batch_id:
+            rows = conn.execute(
+                """
+                SELECT id, batch_id, hold_key, visitor_id, reason, member_json, created_at
+                FROM quarantine WHERE batch_id=? ORDER BY id DESC
+                """,
+                (batch_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, batch_id, hold_key, visitor_id, reason, member_json, created_at
+                FROM quarantine ORDER BY id DESC
+                """
+            ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@router.get("/dirty-hold/attestation")
+def dirty_hold_attestation(batch_id: str | None = None):
+    """脏点核证（只读）：批次/搁置键/原因/正式写入数/末击点是否未漂。"""
+    conn = connect()
+    try:
+        data = attestation(conn, batch_id)
+        if not data.get("found"):
+            raise HTTPException(404, "批次不存在")
+        return data
     finally:
         conn.close()
 

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS hits (
 
 CREATE TABLE IF NOT EXISTS quarantine (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  batch_id TEXT,
+  hold_key TEXT,
   visitor_id TEXT,
   reason TEXT NOT NULL,
   member_json TEXT NOT NULL,
@@ -64,6 +66,10 @@ CREATE TABLE IF NOT EXISTS session_proofs (
 def init_db():
     conn = connect()
     conn.executescript(SCHEMA)
+    # 旧库兜底：quarantine 新增批次/搁置键列（幂等）
+    from app.modules.dirty_hit_hold import ensure_schema
+
+    ensure_schema(conn)
     row = conn.execute("SELECT value FROM settings WHERE key='idle_timeout_sec'").fetchone()
     if not row:
         conn.execute(

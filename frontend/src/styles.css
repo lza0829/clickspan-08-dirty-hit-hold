@@ -231,3 +231,44 @@ table.data th { color: var(--muted); font-weight: 500; }
 
 .err { color: var(--danger); }
 .ok { color: var(--cyan); }
+.warn { color: var(--copper); }
+
+/* dirty_hit_hold：搁置 / 核证 / 末击点 */
+.hold-row { cursor: pointer; }
+.hold-row:hover { background: var(--copper-soft); }
+.payload-row td { background: #2a201a; }
+.payload {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  color: #f3ebe1;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 18rem;
+  overflow: auto;
+}
+.reason-tag {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--copper-soft);
+  color: var(--danger);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.hold-keys { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+.linkish { color: var(--copper); text-decoration: underline; font-size: 0.82rem; }
+.att-bar { display: flex; gap: 0.6rem; margin: 0.6rem 0 1rem; }
+.att-bar input { flex: 1; padding: 0.45rem 0.6rem; }
+.clock-end { color: var(--copper); font-style: normal; font-weight: 600; }
+.hit-bead.last-bead {
+  background: var(--copper-soft);
+  border-color: var(--copper);
+  position: relative;
+}
+.bead-tag {
+  font-style: normal;
+  font-size: 0.62rem;
+  color: var(--copper);
+  font-weight: 700;
+  align-self: center;
+}

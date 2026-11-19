@@ -30,3 +30,24 @@ npm run dev
 
 **泳道织机**：顶栏品牌 + 顶栏菜单（织机 / 收流 / 搁置 / 核证 / 切窗）+ 横向会话串珠。  
 不用底栏导航、不用三栏测绘板、不用左轨编号、不用流程 ribbon。
+
+## 脏点搁置（dirty_hit_hold）
+
+缺 `visitor_id` / `event_ts` / `page_path` / `event_name`（缺失、null、纯空白）的击点处理：
+
+- **落库形态（择一）**：搁置表挂 payload JSON —— 写入 `quarantine`，`member_json` 保存
+  原始 payload，另有 `batch_id`、`hold_key`、`reason` 列；不使用 `hits.hold` 标记。
+- **失败闭（择一）**：入口校验分流 —— 收流入口逐点校验，脏点即剔入搁置，合法点才写
+  正式 hits 并推进 open 会话末击点；整批单事务，意外异常整趟回滚。
+- 脏点不进正式成员、不改 `hit_count`、不更新末击点 `ended_at`；禁止只打日志。
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/quarantine?batch_id=` | 搁置记录（含可展开 payload、搁置键、原因） |
+| `GET /api/dirty-hold/attestation?batch_id=` | 只读核证：批次、搁置键、原因、正式写入数、末击点是否未漂 |
+| `POST /api/ingest/run` | 收流一批（夹具 `fixtures/ingest_batch.json` 混有脏行） |
+
+末击点未漂判定：会话当前 `ended_at` 必须等于其正式成员的 `MAX(event_ts)`；
+被脏行顶替会晚于该值，核证 `clock_drifted=true`、`passed=false`。
+
+后端测试：`cd backend && .venv/bin/python -m pytest tests/`（独立临时 SQLite，不污染本地库）。
